@@ -12,6 +12,10 @@
 #define GPS_TX 17
 #define BUZZER_PIN 5
 #define GSM_RST 4
+#define SD_CS 13
+#define MPU_INT 15
+#define LED_PIN 2
+#define BATT_PIN 36
 
 // Thresholds (adjust based on your testing.Sijui unataka gani)
 #define CRASH_IMPACT_THRESHOLD 3.0  // 3G force
