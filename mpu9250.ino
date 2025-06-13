@@ -5,7 +5,6 @@
 #include <MPU9250.h>  // For accelerometer/gyroscope
 #include <TinyGPS++.h> // For GPS speed
 #include <RTClib.h>
-#include <GSM.h>      // For SMS alerts
 #include <SD.h>
 
 // Hardware Pins
