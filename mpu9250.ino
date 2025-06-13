@@ -23,9 +23,12 @@
 #define ROLLOVER_ANGLE 90.0         // 90 degrees tilt
 
 // Objects
-MPU9250 mpu;
-TinyGPSPlus gps;
-GSM gsmAccess;
+MPU9250 mpu;               // Motion sensor
+TinyGPSPlus gps;           // GPS parser
+RTC_DS3231 rtc;            // Real-time clock
+File dataFile;             // For SD card logs
+HardwareSerial ss(1);      // UART1 for GPS
+HardwareSerial sim800(2);  // UART2 for SIM800L
 
 // Variables
 float lastSpeed = 0.0;
