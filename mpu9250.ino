@@ -47,19 +47,24 @@ String location = "";
 void setup() {
   Serial.begin(115200);
   Wire.begin();
-  
+
   // Initialize MPU9250
   if (!mpu.begin()) {
-    Serial.println("MPU9250 init failed!");
     while (1);
   }
-  
-  // Initialize GPS
-  Serial1.begin(9600, SERIAL_8N1, GPS_RX, GPS_TX);
-  
-  // Initialize GSM
-  gsmAccess.begin(9600, GSM_RST);
-  
+
+  // Initialize GPS (UART1)
+  ss.begin(9600, SERIAL_8N1, GPS_RX, GPS_TX);
+
+  // Initialize SIM800L (UART2)
+  sim800.begin(9600, SERIAL_8N1, 26, 27);
+
+  // Initialize RTC
+  rtc.begin();
+
+  // Initialize SD card
+  SD.begin();
+
   // Initialize Buzzer
   pinMode(BUZZER_PIN, OUTPUT);
   digitalWrite(BUZZER_PIN, LOW);
