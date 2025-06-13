@@ -1,8 +1,12 @@
 #include <Arduino.h>
 #include <Wire.h>
+#include <SPI.h>
+#include <FS.h>
 #include <MPU9250.h>  // For accelerometer/gyroscope
 #include <TinyGPS++.h> // For GPS speed
+#include <RTClib.h>
 #include <GSM.h>      // For SMS alerts
+#include <SD.h>
 
 // Hardware Pins
 #define GPS_RX 16
