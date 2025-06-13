@@ -31,9 +31,18 @@ HardwareSerial ss(1);      // UART1 for GPS
 HardwareSerial sim800(2);  // UART2 for SIM800L
 
 // Variables
-float lastSpeed = 0.0;
-unsigned long lastSpeedUpdateTime = 0;
-bool accidentConfirmed = false;
+float lastSpeed = 0.0;                      
+unsigned long lastSpeedUpdateTime = 0;      
+bool accidentConfirmed = false;             
+
+float currentAccelX, currentAccelY, currentAccelZ;  
+float accelMagnitude;                               
+
+float rollAngle = 0.0;         
+float pitchAngle = 0.0;
+
+String timestamp = "";         
+String location = "";          
 
 void setup() {
   Serial.begin(115200);
