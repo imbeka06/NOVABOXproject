@@ -23,12 +23,12 @@
 #define ROLLOVER_ANGLE 90.0         // 90 degrees tilt
 
 // Objects
-MPU9250 mpu;               // Motion sensor
-TinyGPSPlus gps;           // GPS parser
-RTC_DS3231 rtc;            // Real-time clock
-File dataFile;             // For SD card logs
-HardwareSerial ss(1);      // UART1 for GPS
-HardwareSerial sim800(2);  // UART2 for SIM800L
+MPU9250 mpu;               // 
+TinyGPSPlus gps;           // 
+RTC_DS3231 rtc;            // 
+File dataFile;             // 
+HardwareSerial ss(1);      // 
+HardwareSerial sim800(2);  // 
 
 // Variables
 float lastSpeed = 0.0;                      
@@ -73,10 +73,10 @@ void setup() {
 void loop() {
   // 1. Read Sensor Data
   mpu.readSensor();
-  float ax = mpu.getAccelX_mss() / 9.81;  // Convert to G-force
+  float ax = mpu.getAccelX_mss() / 9.81;  //
   float ay = mpu.getAccelY_mss() / 9.81;
   float az = mpu.getAccelZ_mss() / 9.81;
-  float tiltAngle = atan2(ay, az) * 180.0 / PI;  // Calculate tilt angle
+  float tiltAngle = atan2(ay, az) * 180.0 / PI;  //
 
   // 2. Read GPS Speed (if available)
   while (Serial1.available() > 0) {
@@ -110,10 +110,10 @@ void loop() {
     logCrashData();
     sendEmergencyAlert();
     triggerBuzzer();
-    accidentConfirmed = false;  // Reset for next event
+    accidentConfirmed = false;  //
   }
 
-  delay(10);  // Small delay to stabilize readings
+  delay(10);  // 
 }
 
 // Helper Functions
@@ -125,7 +125,7 @@ void logCrashData() {
   crashLog += "Impact Force: " + String(mpu.getAccelZ_mss() / 9.81, 2) + "G\n";
   crashLog += "Tilt Angle: " + String(atan2(mpu.getAccelY_mss(), mpu.getAccelZ_mss()) * 180.0 / PI, 2) + "°";
   
-  Serial.println(crashLog);  // Replace with SD card logging if needed
+  Serial.println(crashLog);  // 
 }
 
 void sendEmergencyAlert() {
@@ -133,13 +133,13 @@ void sendEmergencyAlert() {
   smsMessage += "Location: http://maps.google.com/?q=" + 
                 String(gps.location.lat(), 6) + "," + String(gps.location.lng(), 6);
   
-  gsmAccess.sendSMS("+254710842120", smsMessage);  // Replace with emergency number.For now it is your number.
+  gsmAccess.sendSMS("+254710842120", smsMessage);  //
 }
 
 void triggerBuzzer() {
   for (int i = 0; i < 5; i++) {
     digitalWrite(BUZZER_PIN, HIGH);
-    delay(500);// well the time is not fixed.you can adjust to your preferenc
+    delay(500);//
     digitalWrite(BUZZER_PIN, LOW);
     delay(500);
   }
