@@ -1,11 +1,11 @@
 #include <Arduino.h>
 #include <Wire.h>
-#include <SPI.h>
-#include <FS.h>
+#include <SPI.h>// Serial Peripheral Interface to allow communication btwn ESP32 and periherals like SD card.
+#include <FS.h>// File System Interface
 #include <MPU9250.h>  // For accelerometer/gyroscope
 #include <TinyGPS++.h> // For GPS speed
-#include <RTClib.h>
-#include <SD.h>
+#include <RTClib.h> // Real-time clock
+#include <SD.h> //For SD card
 
 // Hardware Pins
 #define GPS_RX 16
