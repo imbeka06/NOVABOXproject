@@ -1,0 +1,263 @@
+#include <Arduino.h>
+#include <Wire.h>
+#include <SPI.h>// Serial Peripheral Interface to allow communication btwn ESP32 and periherals like SD card.
+#include <FS.h>// File System Interface
+#include <MPU9250.h>  // For accelerometer/gyroscope
+#include <TinyGPS++.h> // For GPS speed
+#include <RTClib.h> // Real-time clock
+#include <SD.h> //For SD card
+
+//Define the Hardware pins
+#define GPS_RX_PIN 16
+#define GPS_TX_PIN 17
+#define BUZZER PIN 5
+#define LED_PIN 2
+#define GSM_RST_PIN 4
+#define SD_CS 13
+#define LED_PIN 2
+#define MPU_INT 15
+
+// Define Thresholds
+#define CRASH_IMPACT 3.0 // Crash impact threshold
+#define SUDDEN_STOP 0.5 // Sudden stop threshold
+#define ROLLOVER_THRESHOLD 90.0 // Roll over threshold in degrees
+
+//OBJECTS
+MPU9250 mpu; // MPU9250 object for accelerometer/gyroscope
+TinyGPSPlus gps; // GPS object for speed
+RTC_DS3231 rtc; // Real-time clock object
+File dataFile; // File object for SD card
+HardwareSerial ss(1); // Serial port for GPS communication
+HardwareSerial sim800(2); // Serial port for GSM communication
+
+//varibles
+float last_speed = 0.0; // Last speed from GPS
+unsigned long last_gps_update = 0; // Last GPS update time
+unsigned long last_sd_write = 0; // Last SD card write time
+bool accidentConfirmed = false; // Flag to confirm accident
+bool rolloverConfirmed = false; // Flag to confirm rollover
+ float current_accelX, current_accelY, current_accelZ; // Current accelerometer values
+ float accelmagnitude; // Current accelerometer magnitude
+ float roll_angle; // Current roll angle
+ float pitch_angle; // Current pitch angle
+
+ String timestamp; // Timestamp for data logging
+ String location; // Location data from GPS
+ String speed; // Speed data from GPS
+
+void setup() {
+  serial.begin(115200; // Initialize serial communication
+    wire.begin(); // Initialize I2C communication
+    //initialize MPU9250
+    if (!mpu.begin(MPU9250_SCALE_2G, MPU9250_RANGE_250DPS)) {
+        Serial.println("MPU9250 initialization failed!");
+        while (1); // Halt if MPU9250 initialization fails
+    }
+    //initialize GPS(UART1)
+    ss.begin(9600, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN); // Initialize GPS serial communication
+    //initialize sim800(UART2)
+    sim800.begin(9600, SERIAL_8N1, 26, 27); // Initialize GSM serial communication
+    //initialize RTC
+    if (!rtc.begin()) {
+        Serial.println("RTC initialization failed!");
+        while (1); // Halt if RTC initialization fails
+    }
+    //initialize SD card
+    if (!SD.begin(SD_CS)) {
+        Serial.println("SD card initialization failed!");
+        while (1); // Halt if SD card initialization fails
+    }
+    // Create/Open data file on SD card
+    String filename = "/accident_data.txt";
+    dataFile = SD.open(filename, FILE_WRITE);
+    if (!dataFile) {
+        Serial.println("Failed to open data file on SD card!");
+        while (1); // Halt if data file cannot be opened
+    }
+    //initialize buzzzer 
+    pinMode(BUZZER_PIN, OUTPUT); // Set buzzer pin as output
+    digitalWrite(BUZZER_PIN, LOW); // Turn off buzzer initially
+    //initialize LED
+    pinMode(LED_PIN, OUTPUT); // Set LED pin as output
+    digitalWrite(LED_PIN, LOW); // Turn off LED initially
+    // Print initialization success messages
+    Serial.println("MPU9250 initialized successfully.");  
+    Serial.println("GPS initialized successfully.");
+    Serial.println("RTC initialized successfully.");
+    Serial.println("SD card initialized successfully.");
+    Serial.println("Data file opened successfully on SD card.");
+    // Print the current date and time from RTC
+    DateTime now = rtc.now();
+    Serial.print("Current date and time: ");
+    Serial.print(now.year(), DEC);
+    Serial.print("-");
+    Serial.print(now.month(), DEC);
+    Serial.print("-");
+    Serial.print(now.day(), DEC);
+    Serial.print(" ");
+    Serial.print(now.hour(), DEC);
+    Serial.print(":");
+    Serial.print(now.minute(), DEC);
+    Serial.print(":");
+    Serial.println(now.second(), DEC);
+
+ 
+}
+
+void loop() {
+ //Read sensor 
+ mpu.readSensor(); // Read accelerometer/gyroscope data
+ float accelX = mpu.getAccelX_mss()/9.81; // Get accelerometer X value
+  float accelY = mpu.getAccelY_mss()/9.81; // Get accelerometer Y value
+  float accelZ = mpu.getAccelZ_mss()/9.81; // Get accelerometer Z value
+  current_accelX = accelX; // Update current accelerometer X value
+  current_accelY = accelY; // Update current accelerometer Y value
+  current_accelZ = accelZ; // Update current accelerometer Z value
+  accelmagnitude = sqrt(pow(current_accelX, 2) + pow(current_accelY, 2) + pow(current_accelZ, 2)); // Calculate accelerometer magnitude
+  roll_angle = atan2(current_accelY, current_accelZ) * 180.0 / PI; // Calculate roll angle in degrees
+  pitch_angle = atan2(current_accelX, sqrt(pow(current_accelY, 2) + pow(current_accelZ, 2))) * 180.0 / PI; // Calculate pitch angle in degrees  
+  
+  float TiltAngle = atan2(current_accelX, sqrt(pow(current_accelY, 2) + pow(current_accelZ, 2))) * 180.0 / PI; // Calculate tilt angle in degrees
+  // Check for rollover condition
+  if (TiltAngle > ROLLOVER_THRESHOLD || TiltAngle < -ROLLOVER_THRESHOLD) {
+    rolloverConfirmed = true; // Set rollover confirmed flag
+    Serial.println("Rollover detected!"); // Print rollover detected message
+    digitalWrite(LED_PIN, HIGH); // Turn on LED
+    digitalWrite(BUZZER_PIN, HIGH); // Turn on buzzer
+    delay(1000); // Wait for 1 second
+    digitalWrite(LED_PIN, LOW); // Turn off LED
+    digitalWrite(BUZZER_PIN, LOW); // Turn off buzzer
+  } else {
+    rolloverConfirmed = false; // Reset rollover confirmed flag
+  }
+
+  // Check for crash condition
+  if (accelmagnitude > CRASH_IMPACT) {  
+    accidentConfirmed = true; // Set accident confirmed flag
+    Serial.println("Crash detected!"); // Print crash detected message
+    digitalWrite(LED_PIN, HIGH); // Turn on LED
+    digitalWrite(BUZZER_PIN, HIGH); // Turn on buzzer
+    delay(1000); // Wait for 1 second
+    digitalWrite(LED_PIN, LOW); // Turn off LED
+    digitalWrite(BUZZER_PIN, LOW); // Turn off buzzer
+  } else {
+    accidentConfirmed = false; // Reset accident confirmed flag
+  }
+  // Read GPS data SPEED to be precise
+  while (ss.available() > 0) {
+    gps.encode(ss.read()); // Encode GPS data
+  }
+  
+  // Print accelerometer values
+  Serial.print("Accelerometer X: ");
+  Serial.print(current_accelX);
+  Serial.print(" m/s^2, Y: ");
+  Serial.print(current_accelY);
+  Serial.print(" m/s^2, Z: ");
+  Serial.print(current_accelZ);
+  Serial.print(" m/s^2, Magnitude: ");
+  Serial.print(accelmagnitude);
+  Serial.print(" m/s^2, Roll: ");
+  Serial.print(roll_angle);
+  Serial.print(" degrees, Pitch: ");
+  Serial.print(pitch_angle);
+  Serial.println(" degrees");
+
+
+}
+// read GPS speed 
+ while (Serial1.available() > 0) {
+    if (gps.encode(Serial1.read())) {
+      if (gps.speed.isValid()) {
+        lastSpeed = gps.speed.kmph();
+        lastSpeedUpdateTime = millis();
+      }
+    }
+  }
+// Print GPS speed
+  if (gps.speed.isValid()) {
+    Serial.print("GPS Speed: ");
+    Serial.print(gps.speed.kmph());
+    Serial.println(" km/h");
+  } else {
+    Serial.println("GPS Speed: Invalid");
+  }
+  // check accidnet condition
+  if (accidentConfirmed || rolloverConfirmed) {
+    // Log data to SD card
+    DateTime now = rtc.now(); // Get current date and time from RTC
+    timestamp = String(now.year()) + "-" + String(now.month()) + "-" + String(now.day()) + " " +
+                String(now.hour()) + ":" + String(now.minute()) + ":" + String(now.second());
+    location = String(gps.location.lat(), 6) + ", " + String(gps.location.lng(), 6); // Get GPS location
+    speed = String(gps.speed.kmph()); // Get GPS speed
+
+    // Write data to SD card
+    dataFile.println(timestamp + ", " + location + ", " + speed);
+    dataFile.flush(); // Ensure data is written to SD card
+    Serial.println("Data logged to SD card.");
+  }
+  // confirm accident more of multi-check
+  if (accidentConfirmed) {
+    Serial.println("Accident confirmed!"); // Print accident confirmed message
+    digitalWrite(LED_PIN, HIGH); // Turn on LED
+    digitalWrite(BUZZER_PIN, HIGH); // Turn on buzzer
+    delay(1000); // Wait for 1 second
+    digitalWrite(LED_PIN, LOW); // Turn off LED
+    digitalWrite(BUZZER_PIN, LOW); // Turn off buzzer
+  } else {
+    Serial.println("No accident detected."); // Print no accident detected message
+  }
+  // Trigger emergency protocol if  ccident confirmed
+  if (accidentConfirmed || rolloverConfirmed) {
+    // Send SMS alert
+    sim800.println("SEMA HALFTAM SIO WANTAM ATA"); // Set SMS mode to text
+    delay(100);
+    sim800.println("AT+CMGS=\"+254710842120\""); // Replace with  phone number of choice.Nitaweka yako tu.
+    delay(100);
+    sim800.print("Accident detected! Timestamp: ");
+    sim800.print(timestamp);
+    sim800.print(", Location: ");
+    sim800.print(location);
+    sim800.print(", Speed: ");
+    sim800.println(speed);
+    delay(100);
+    sim800.write(26); // Send Ctrl+Z to send SMS
+    Serial.println("SMS alert sent.");
+  }
+  // Helper Functions
+  void logCrashData () {
+    // Log crash data to SD card
+    DateTime now = rtc.now(); // Get current date and time from RTC
+    timestamp = String(now.year()) + "-" + String(now.month()) + "-" + String(now.day()) + " " +
+                String(now.hour()) + ":" + String(now.minute()) + ":" + String(now.second());
+    location = String(gps.location.lat(), 6) + ", " + String(gps.location.lng(), 6); // Get GPS location
+    speed = String(gps.speed.kmph()); // Get GPS speed
+
+    // Write data to SD card
+    dataFile.println(timestamp + ", " + location + ", " + speed);
+    dataFile.flush(); // Ensure data is written to SD card
+    Serial.println("Crash data logged to SD card.");
+  }
+  void EmergencyAlert() {
+    // Trigger emergency alert
+    sim800.println("SEMA HALFTAM SIO WANTAM ATA"); // Set SMS mode to text
+    delay(100);
+    sim800.println("AT+CMGS=\"+254710842120\""); // Replace with phone number of choice
+    delay(100);
+    sim800.print("Accident detected! Timestamp: ");
+    sim800.print(timestamp);
+    sim800.print(", Location: ");
+    sim800.print(location);
+    sim800.print(", Speed: ");
+    sim800.println(speed);
+    delay(100);
+    sim800.write(26); // Send Ctrl+Z to send SMS
+    Serial.println("SMS alert sent.");
+  }
+  void TriggerBuzzer() {
+    // Trigger buzzer alert
+    digitalWrite(BUZZER_PIN, HIGH); // Turn on buzzer
+    delay(1000); // Wait for 1 second
+    digitalWrite(BUZZER_PIN, LOW); // Turn off buzzer
+  }
+  
